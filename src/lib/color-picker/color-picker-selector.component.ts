@@ -56,6 +56,13 @@ export class MccColorPickerSelectorComponent
   /**
    * ElementRef of the color base
    */
+  @ViewChild('transparencyStrip') _transparencyStrip: ElementRef;
+  // hold _strip context
+  private _transparencyStripContext: any;
+
+  /**
+   * ElementRef of the transparency base
+   */
   @ViewChild('strip') _strip: ElementRef;
   // hold _strip context
   private _stripContext: any;
@@ -68,6 +75,12 @@ export class MccColorPickerSelectorComponent
     this._sc = el;
   }
   private _sc: ElementRef;
+
+  @ViewChild('transparencyStripContainer')
+  set transparencyStripCursor(el: ElementRef) {
+    this._tsc = el;
+  }
+  private _tsc: ElementRef;
 
   /**
    * Change height base of the selector
@@ -156,7 +169,7 @@ export class MccColorPickerSelectorComponent
   /**
    * Form and keys of the fields in RGB
    */
-  rgbKeys = ['R', 'G', 'B'];
+  rgbKeys = ['R', 'G', 'B', 'A'];
   rgbForm: FormGroup;
 
   constructor(
@@ -178,23 +191,36 @@ export class MccColorPickerSelectorComponent
 
     // hex form
     this.hexForm = this.formBuilder.group({
-      hexCode: [this.selectedColor, [Validators.minLength(7), Validators.maxLength(7)]],
+      hexCode: [this.selectedColor, [Validators.minLength(7), Validators.maxLength(9)]],
     });
 
     // rgb dynamic form
     const rgbGroup: any = {};
     const rgbValue: number[] = this._getRGB();
     this.rgbKeys.forEach(
-      (key, index) =>
-        (rgbGroup[key] = new FormControl(rgbValue[index], {
-          validators: [
-            Validators.min(0),
-            Validators.max(256),
-            Validators.required,
-            Validators.maxLength(3),
-          ],
-          updateOn: 'blur',
-        }))
+      (key, index) => {
+        if (index < 3) {
+          rgbGroup[key] = new FormControl(rgbValue[index], {
+            validators: [
+              Validators.min(0),
+              Validators.max(256),
+              Validators.required,
+              Validators.maxLength(3),
+            ],
+            updateOn: 'blur',
+          });
+        } else {
+          rgbGroup[key] = new FormControl(rgbValue[index], {
+            validators: [
+              Validators.min(0),
+              Validators.max(1),
+              Validators.required,
+              Validators.maxLength(1),
+            ],
+            updateOn: 'blur',
+          });
+        }
+      }
     );
     this.rgbForm = this.formBuilder.group(rgbGroup);
 
@@ -274,6 +300,22 @@ export class MccColorPickerSelectorComponent
     this._stripContext.fillStyle = grd1;
     this._stripContext.fill();
 
+    this.render.listen(this._transparencyStrip.nativeElement, 'mousedown', e => {
+      this._isPressed = true;
+      this.changeTransparency(e);
+    });
+    this.render.listen(this._transparencyStrip.nativeElement, 'mouseup', () => (this._isPressed = false));
+    this.render.listen(this._transparencyStrip.nativeElement, 'mouseout', () => (this._isPressed = false));
+    this.render.listen(this._transparencyStrip.nativeElement, 'mousemove', e => this.changeTransparency(e));
+    this._transparencyStripContext = this._transparencyStrip.nativeElement.getContext('2d');
+    this._transparencyStripContext.rect(
+      0,
+      0,
+      this._transparencyStrip.nativeElement.width,
+      this._transparencyStrip.nativeElement.height
+    );
+    this.updateTransparencyGradient();
+
     this._fillGradient();
   }
 
@@ -340,14 +382,19 @@ export class MccColorPickerSelectorComponent
    */
   private _getRGB(data?: any): number[] {
     if (data) {
-      return [data[0], data[1], data[2]];
+      return [data[0], data[1], data[2], data[3]];
     }
-    const hex = this._selectedColor.replace('#', '');
+
+    let hex = this._selectedColor.replace('#', '');
+    if (hex === 'none') {
+      hex = '00000000';
+    }
     const r = parseInt(hex.slice(0, 2), 16);
     const g = parseInt(hex.slice(2, 4), 16);
     const b = parseInt(hex.slice(4, 6), 16);
+    const a = this._selectedColor.length === 8 ? parseInt(hex.slice(6, 8), 16) : 1;
 
-    return [r, g, b];
+    return [r, g, b, a];
   }
 
   /**
@@ -356,10 +403,11 @@ export class MccColorPickerSelectorComponent
    * @returns string
    */
   private _getHex(data: any): string {
-    const hex = new Array(3);
+    const hex = new Array(4);
     hex[0] = data[0].toString(16);
     hex[1] = data[1].toString(16);
     hex[2] = data[2].toString(16);
+    hex[3] = (data.length > 3 ? data[3] : 1).toString(16);
 
     hex.forEach((val, key) => {
       if (val.length === 1) {
@@ -367,7 +415,7 @@ export class MccColorPickerSelectorComponent
       }
     });
 
-    return coerceHexaColor(`${hex[0]}${hex[1]}${hex[2]}`) || this.emptyColor;
+    return coerceHexaColor(`${hex[0]}${hex[1]}${hex[2]}${hex[3]}`) || this.emptyColor;
   }
 
   /**
@@ -380,7 +428,7 @@ export class MccColorPickerSelectorComponent
     }
 
     const rgb = this._getRGB(data);
-    this._rgbaColor = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 1)`;
+    this._rgbaColor = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${rgb[3]})`;
   }
 
   /**
@@ -396,7 +444,11 @@ export class MccColorPickerSelectorComponent
       data = this._getRGB();
     }
 
-    this.rgbForm.setValue({ R: data[0], G: data[1], B: data[2] });
+    this.rgbForm.setValue({ R: data[0], G: data[1], B: data[2], A: data.length > 3 ? this.coerceAlpha(data[3]) : 1 });
+  }
+
+  private coerceAlpha(num: number) {
+    return (num / 255).toFixed(2);
   }
 
   /**
@@ -406,11 +458,45 @@ export class MccColorPickerSelectorComponent
   private changeBaseColor(e): void {
     if (this._isPressed) {
       this.render.setStyle(this._sc.nativeElement, 'background-position-y', `${e.offsetY}px`);
-      const data = this._stripContext.getImageData(e.offsetX, e.offsetY, 1, 1).data;
-      this._updateRGBA(data);
+      // have to convert to a normal array form Uint8clampedArray
+      const data = Array.prototype.slice.call(this._stripContext.getImageData(e.offsetX, e.offsetY, 1, 1).data);
+      const toUpdate = [...data, this.rgbForm.controls['A'].value];
+      this._updateRGBA(toUpdate);
       this._fillGradient();
-      this.updateValues(data);
+      this.updateValues(toUpdate);
+      this.updateTransparencyGradient(toUpdate);
     }
+  }
+
+  private changeTransparency(e): void {
+    if (this._isPressed) {
+      this.render.setStyle(this._tsc.nativeElement, 'background-position-y', `${e.offsetY}px`);
+      const data = this._transparencyStripContext.getImageData(e.offsetX, e.offsetY, 1, 1).data;
+      const toUpdate = [this.rgbForm.controls['R'].value, this.rgbForm.controls['G'].value, this.rgbForm.controls['B'].value, data[3]];
+      // this._updateRGBA(toUpdate);
+      // this._fillGradient();
+      this.updateValues(toUpdate);
+    }
+  }
+
+  private updateTransparencyGradient(data?: any) {
+    this._transparencyStripContext.clearRect(
+      0,
+      0,
+      this._transparencyStrip.nativeElement.width,
+      this._transparencyStrip.nativeElement.height
+    );
+    const grd2 = this._transparencyStripContext.createLinearGradient(
+      0,
+      0,
+      this._transparencyStrip.nativeElement.width,
+      this._transparencyStrip.nativeElement.height
+    );
+    const [r, g, b] = this._getRGB(data);
+    grd2.addColorStop(0, `rgba(${r}, ${g}, ${b}, 1.000)`);
+    grd2.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0.000)`);
+    this._transparencyStripContext.fillStyle = grd2;
+    this._transparencyStripContext.fill();
   }
 
   /**

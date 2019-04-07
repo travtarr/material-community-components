@@ -53,7 +53,7 @@ export function isValidColor(color: string): boolean {
     !color ||
     color.charAt(0) !== '#' ||
     color.length < 4 ||
-    color.length > 7
+    color.length > 9
   ) {
     return false;
   }

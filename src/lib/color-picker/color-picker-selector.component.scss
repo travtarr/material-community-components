@@ -1,5 +1,13 @@
+@mixin checkeredBg {
+  background-color: #fff;
+	background-image: linear-gradient(45deg, #ddd 25%, transparent 25%, transparent 75%, #ddd 75%, #ddd),
+					  linear-gradient(45deg, #ddd 25%, transparent 25%, transparent 75%, #ddd 75%, #ddd);
+	background-size: 8px 8px;
+	background-position:0 0, 4px 4px;
+}
+
 canvas {
-  &#colors {
+  &#colors, &#transparency {
     margin: 5px;
   }
   &:hover {
@@ -9,7 +17,7 @@ canvas {
 
 .mcc-picker-selector {
   position: absolute;
-  width: 230px;
+  width: 260px;
   height: 170px;
   top: 0;
   left: 0;
@@ -27,15 +35,26 @@ canvas {
   background: rgba(0, 0, 0, 0.3);
 }
 
-.mcc-colors-position {
+@mixin commonStrip {
   position: absolute;
   width: 30px;
   height: 160px;
-  top: 0px;
-  right: 0px;
   z-index: 1;
   background: url('data:image/gif;base64,R0lGODdhHgAIALMAAAAAADU1NTk5OUJCQkpKSlZWVltbW2pqaoCAgP///wAAAAAAAAAAAAAAAAAAAAAAACH5BAkAAAoALAAAAAAeAAgAAAQw0BhFq734yjJm/p8xFEVAeGCqGERACmahgkUrvPH81cFdnjoQy8VBBTOiguSokkQAADs=')
     no-repeat;
+}
+.mcc-colors-position {
+  @include commonStrip();
+  top: 0px;
+  right: 36px;
+  // background: url('data:image/gif;base64,R0lGODdhHgAIALMAAAAAADU1NTk5OUJCQkpKSlZWVltbW2pqaoCAgP///wAAAAAAAAAAAAAAAAAAAAAAACH5BAkAAAoALAAAAAAeAAgAAAQw0BhFq734yjJm/p8xFEVAeGCqGERACmahgkUrvPH81cFdnjoQy8VBBTOiguSokkQAADs=')
+  //   no-repeat;
+}
+.mcc-transparency-position {
+  @include commonStrip();
+  // @include checkeredBg();
+  top: 0px;
+  right: 0px;
 }
 
 .mcc-color-picker-selector {
@@ -78,7 +97,7 @@ canvas {
   }
 
   .hex-input {
-    width: 75px;
+    width: 85px;
     margin-right: 20px;
 
     input {
@@ -88,12 +107,16 @@ canvas {
   }
 
   .rgb-input {
-    width: 40px;
+    width: 44px;
     margin-right: 5px;
 
     input {
       font-size: 16px;
       font-weight: normal;
+    }
+
+    &-alpha {
+      width: 48px;
     }
   }
 }
